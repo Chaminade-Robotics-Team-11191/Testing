@@ -17,8 +17,8 @@ import org.opencv.imgproc.Imgproc;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RedProcessor implements VisionProcessor {
-    int wh, ht;
+public class ringDetection implements VisionProcessor {
+    int wh, ht, index;
     Rect ROI;
     MatOfPoint largestContour;
     List<MatOfPoint> contours = new ArrayList<>();
@@ -26,21 +26,20 @@ public class RedProcessor implements VisionProcessor {
     public void init(int width, int height, CameraCalibration calibration) {
         wh = width;
         ht = height;
-        ROI = new Rect(new Point(Math.round(wh/4), Math.round(ht/4)), new Point(Math.round(0.75*wh), Math.round(0.75*ht)));
+        ROI = new Rect(new Point(Math.round((float) wh /4), Math.round((float) ht /4)), new Point(Math.round(0.75*wh), Math.round(0.75*ht)));
     }
-
     @Override
     public Object processFrame(Mat frame, long captureTimeNanos) {
-        detectLargestContours(isolateImage(frame, new Scalar(10,130,130), new Scalar(16, 255, 255)));
+        detectLargestContours(isolateImage(frame, new Scalar(7,100,100), new Scalar(16, 255, 255), false));
         return null;
     }
 
     private void detectLargestContours(Mat isolateMat) {
         Mat hierarchy = new Mat();
         contours.clear();
-        largestContour = new MatOfPoint();
+        largestContour = null;
         Imgproc.findContours(isolateMat, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-        double area = 0;
+        double area = 10;
         for (MatOfPoint contour : contours) {
             if (Imgproc.contourArea(contour) > area) {
                 largestContour = contour;
@@ -48,11 +47,14 @@ public class RedProcessor implements VisionProcessor {
             }
         }
     }
-
-    private Mat isolateImage(Mat frame, Scalar lowerBound, Scalar upperBound) {
+    private Mat isolateImage(Mat frame, Scalar lowerBound, Scalar upperBound, boolean hsv_frame) {
         Mat isolateMat = frame.submat(ROI);
         Imgproc.cvtColor(isolateMat, isolateMat, Imgproc.COLOR_RGB2HSV);
         Core.inRange(isolateMat, lowerBound, upperBound, isolateMat);
+        if (hsv_frame) {
+            Imgproc.cvtColor(frame, frame, Imgproc.COLOR_RGB2HSV);
+            Core.inRange(frame, lowerBound, upperBound, frame);
+        }
         return isolateMat;
     }
     private android.graphics.Rect makeGraphicsRect(Rect rect, float scaleBmpPxToCanvasPx) {
@@ -67,11 +69,20 @@ public class RedProcessor implements VisionProcessor {
         Paint rectangle = new Paint();
         rectangle.setColor(Color.WHITE);
         rectangle.setStyle(Paint.Style.STROKE);
-        rectangle.setStrokeWidth(scaleCanvasDensity * 4);
-        canvas.drawRect(makeGraphicsRect(ROI, scaleBmpPxToCanvasPx), rectangle);
-        Rect largestcountourrect = Imgproc.boundingRect(largestContour);
-        largestcountourrect.x += ROI.x;
-        largestcountourrect.y += ROI.y;
-        canvas.drawRect(makeGraphicsRect(largestcountourrect, scaleBmpPxToCanvasPx), rectangle);
+        rectangle.setStrokeWidth(scaleCanvasDensity * 2);
+        Paint text = new Paint();
+        text.setColor(Color.WHITE);
+        text.setTextSize(15);
+        if (largestContour != null) {
+            Rect largestcountourrect = Imgproc.boundingRect(largestContour);
+            largestcountourrect.x += ROI.x;
+            largestcountourrect.y += ROI.y;
+            canvas.drawRect(makeGraphicsRect(largestcountourrect, scaleBmpPxToCanvasPx), rectangle);
+            canvas.drawText("Ring Detected", Math.round((largestcountourrect.x + (float) largestcountourrect.width /2) * scaleBmpPxToCanvasPx) - 40, Math.round((largestcountourrect.y + (float) largestcountourrect.height /2) * scaleBmpPxToCanvasPx), text);
+            canvas.drawRect(makeGraphicsRect(ROI, scaleBmpPxToCanvasPx), rectangle);
+        } else {
+            rectangle.setColor(Color.RED);
+            canvas.drawRect(makeGraphicsRect(ROI, scaleBmpPxToCanvasPx), rectangle);
+        }
     }
 }

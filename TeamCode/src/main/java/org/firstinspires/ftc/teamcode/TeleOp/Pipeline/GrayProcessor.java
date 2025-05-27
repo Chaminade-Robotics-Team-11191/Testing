@@ -35,7 +35,9 @@ public class GrayProcessor implements VisionProcessor {
     @Override
     public Object processFrame(Mat frame, long captureTimeNanos) {
         Mat roiMat = frame.submat(roi);
+        Imgproc.cvtColor(frame, frame, Imgproc.COLOR_RGB2HSV);
         Imgproc.cvtColor(roiMat, roiMat, Imgproc.COLOR_RGB2HSV);
+        Core.inRange(frame, new Scalar(10,130,130), new Scalar(16, 255, 255), frame);
         Core.inRange(roiMat, new Scalar(10,130,130), new Scalar(16, 255, 255), roiMat);
         Mat hierarchy = new Mat();
         Imgproc.findContours(roiMat, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -64,5 +66,7 @@ public class GrayProcessor implements VisionProcessor {
         rectangle.setStyle(Paint.Style.STROKE);
         rectangle.setStrokeWidth(scaleCanvasDensity * 4);
         canvas.drawRect(makeGraphicsRect(roi, scaleBmpPxToCanvasPx), rectangle);
+        Rect largestcountourrect = new Rect(new Point(Imgproc.boundingRect(largestcontour).x+ roi.x, Imgproc.boundingRect(largestcontour).y + roi.y), new Point(Imgproc.boundingRect(largestcontour).width + roi.width, Imgproc.boundingRect(largestcontour).height + roi.height));
+        canvas.drawRect(makeGraphicsRect(largestcountourrect, scaleBmpPxToCanvasPx), rectangle);
     }
 }
